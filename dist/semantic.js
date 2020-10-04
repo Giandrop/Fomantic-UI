@@ -1,5 +1,5 @@
  /*
- * # Fomantic UI - 2.8.6
+ * # Fomantic UI - 2.8.7
  * https://github.com/fomantic/Fomantic-UI
  * http://fomantic-ui.com/
  *
@@ -1667,6 +1667,17 @@ $.fn.form = function(parameters) {
                   module.verbose("Adding 'empty' rule on field", identifier);
                   module.add.rule(identifier, "empty");
                 }
+              }
+            });
+          },
+          optional: function(identifier, bool) {
+            bool = (bool !== undefined)
+              ? bool
+              : true
+            ;
+            $.each(validation, function(fieldName, field) {
+              if (identifier == fieldName || identifier == field.identifier) {
+                field.optional = bool;
               }
             });
           }
@@ -8508,8 +8519,8 @@ $.fn.dropdown = function(parameters) {
               return ($choice.data(metadata.text) !== undefined)
                 ? $choice.data(metadata.text)
                 : (preserveHTML)
-                  ? $choice.html().trim()
-                  : $choice.text().trim()
+                  ? $choice.html() && $choice.html().trim()
+                  : $choice.text() && $choice.text().trim()
               ;
             }
           },
@@ -8699,6 +8710,9 @@ $.fn.dropdown = function(parameters) {
               ;
             }
             return $selectedItem;
+          },
+          displayType: function() {
+            return $module.hasClass('column') ? 'flex' : settings.displayType;
           }
         },
 
@@ -9253,7 +9267,7 @@ $.fn.dropdown = function(parameters) {
             module.clear();
             module.set.selected(value, $selectedItem);
           },
-          selected: function(value, $selectedItem) {
+          selected: function(value, $selectedItem, preventChangeTrigger) {
             var
               isMultiple = module.is.multiple()
             ;
@@ -9316,7 +9330,7 @@ $.fn.dropdown = function(parameters) {
                     module.save.remoteData(selectedText, selectedValue);
                   }
                   module.set.text(selectedText);
-                  module.set.value(selectedValue, selectedText, $selected);
+                  module.set.value(selectedValue, selectedText, $selected, preventChangeTrigger);
                   $selected
                     .addClass(className.active)
                     .addClass(className.selected)
@@ -10128,11 +10142,10 @@ $.fn.dropdown = function(parameters) {
               module.set.scrollPosition(module.get.selectedItem(), true);
             }
             if( module.is.hidden($currentMenu) || module.is.animating($currentMenu) ) {
-              var displayType = $module.hasClass('column') ? 'flex' : false;
               if(transition == 'none') {
                 start();
                 $currentMenu.transition({
-                  displayType: displayType
+                  displayType: module.get.displayType()
                 }).transition('show');
                 callback.call(element);
               }
@@ -10145,7 +10158,7 @@ $.fn.dropdown = function(parameters) {
                     duration   : settings.duration,
                     queue      : true,
                     onStart    : start,
-                    displayType: displayType,
+                    displayType: module.get.displayType(),
                     onComplete : function() {
                       callback.call(element);
                     }
@@ -10179,7 +10192,9 @@ $.fn.dropdown = function(parameters) {
 
               if(transition == 'none') {
                 start();
-                $currentMenu.transition('hide');
+                $currentMenu.transition({
+                  displayType: module.get.displayType()
+                }).transition('hide');
                 callback.call(element);
               }
               else if($.fn.transition !== undefined && $module.transition('is supported')) {
@@ -10191,6 +10206,7 @@ $.fn.dropdown = function(parameters) {
                     verbose    : settings.verbose,
                     queue      : false,
                     onStart    : start,
+                    displayType: module.get.displayType(),
                     onComplete : function() {
                       callback.call(element);
                     }
@@ -10519,6 +10535,7 @@ $.fn.dropdown.settings = {
 
   transition             : 'auto',     // auto transition will slide down or up based on direction
   duration               : 200,        // duration of transition
+  displayType            : false,      // displayType of transition
 
   glyphWidth             : 1.037,      // widest glyph width in em (W is 1.037 em) used to calculate multiselect input width
 
@@ -15998,28 +16015,26 @@ $.fn.slider = function(parameters) {
             });
           },
           autoLabel: function() {
-            if(module.get.step() != 0) {
-              $labels = $module.find('.labels');
-              if($labels.length != 0) {
-                $labels.empty();
-              }
-              else {
-                $labels = $module.append('<ul class="auto labels"></ul>').find('.labels');
-              }
-              for(var i = 0, len = module.get.numLabels(); i <= len; i++) {
-                var
-                  labelText = module.get.label(i),
-                  $label = (labelText !== "") 
-                    ? !(i % module.get.gapRatio())
-                      ? $('<li class="label">' + labelText + '</li>') 
-                      : $('<li class="halftick label"></li>')
-                    : null,
-                  ratio  = i / len
-                ;
-                if($label) {
-                  module.update.labelPosition(ratio, $label);
-                  $labels.append($label);
-                }
+            $labels = $module.find('.labels');
+            if($labels.length != 0) {
+              $labels.empty();
+            }
+            else {
+              $labels = $module.append('<ul class="auto labels"></ul>').find('.labels');
+            }
+            for(var i = 0, len = module.get.numLabels(); i <= len; i++) {
+              var
+                labelText = module.get.label(i),
+                $label = (labelText !== "")
+                  ? !(i % module.get.gapRatio())
+                    ? $('<li class="label">' + labelText + '</li>')
+                    : $('<li class="halftick label"></li>')
+                  : null,
+                ratio  = i / len
+              ;
+              if($label) {
+                module.update.labelPosition(ratio, $label);
+                $labels.append($label);
               }
             }
           }
@@ -16370,7 +16385,7 @@ $.fn.slider = function(parameters) {
             return settings.step;
           },
           numLabels: function() {
-            var value = Math.round((module.get.max() - module.get.min()) / module.get.step());
+            var value = Math.round((module.get.max() - module.get.min()) / (module.get.step() === 0 ? 1 : module.get.step()));
             module.debug('Determined that there should be ' + value + ' labels');
             return value;
           },
@@ -16384,7 +16399,7 @@ $.fn.slider = function(parameters) {
 
             switch (settings.labelType) {
               case settings.labelTypes.number:
-                return Math.round(((value * module.get.step()) + module.get.min()) * precision ) / precision;
+                return Math.round(((value * (module.get.step() === 0 ? 1 : module.get.step())) + module.get.min()) * precision ) / precision;
               case settings.labelTypes.letter:
                 return alphabet[(value) % 26];
               default:
