@@ -1165,6 +1165,13 @@ $.fn.form = function(parameters) {
                 }
               }
             });
+          },
+          optional: function(identifier, bool) {
+            bool = (bool !== undefined)
+              ? bool
+              : true
+            ;
+            validation[identifier].optional = bool;
           }
         },
 
